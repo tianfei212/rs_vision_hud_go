@@ -1,32 +1,32 @@
-\# 🛠 SKILLS.md: rs-vision-hub-go 开发规格说明书
+# 🛠 SKILLS.md: rs-vision-hub-go 开发规格说明书
 
-\#\# 1\. 项目概览 (Project Overview)
+## 1. 项目概览 (Project Overview)
 
-**\*\*rs-vision-hub-go\*\*** 是一个基于 NVIDIA Jetson 平台的实时视觉监控应用。
+**rs-vision-hub-go** 是一个基于 NVIDIA Jetson 平台的实时视觉监控应用。
 
-本项目作为 \`jetson-rs-middleware\` 的官方测试实现，核心目标是演示如何通过纯 Go 语言获取 RealSense 相机的对齐流，并在本地叠加实时 HUD（平视显示器）信息进行双路渲染。
+本项目作为 `jetson-rs-middleware` 的官方测试实现，核心目标是演示如何通过纯 Go 语言获取 RealSense 相机的对齐流，并在本地叠加实时 HUD（平视显示器）信息进行双路渲染。
 
-\---
+---
 
-\#\# 2\. 核心依赖与存放路径 (Core Dependencies)
+## 2. 核心依赖与存放路径 (Core Dependencies)
 
-\#\#\# 2.1 线上中间件 (Middleware)
+### 2.1 线上中间件 (Middleware)
 
 本项目深度依赖以下线上仓库，无需本地手动下载源码，由 Go Modules 自动管理。
 
-\* **\*\*仓库地址\*\***: \`github.com/tianfei212/jetson-rs-middleware\`
+* **仓库地址**: `github.com/tianfei212/jetson-rs-middleware`
 
-\* **\*\*职责\*\***: 封装 CGO 逻辑，提供 \`rs2.Pipeline\` 等核心 Go 接口。
+* **职责**: 封装 CGO 逻辑，提供 `rs2.Pipeline` 等核心 Go 接口。
 
-\#\#\# 2.2 视觉库 (Visual Library)
+### 2.2 视觉库 (Visual Library)
 
-\* **\*\*GoCV\*\***: \`gocv.io/x/gocv\` (用于窗口管理、颜色映射及图像叠加)。
+* **GoCV**: `gocv.io/x/gocv` (用于窗口管理、颜色映射及图像叠加)。
 
-\---
+---
 
-\#\# 3\. 项目目录结构 (Project Structure)
+## 3. 项目目录结构 (Project Structure)
 
-\`\`\`text
+```text
 
 rs-vision-hub-go/
 
@@ -34,37 +34,39 @@ rs-vision-hub-go/
 
 │   └── hub/
 
-│       └── main.go          \# 应用入口：控制 Pipeline 生命周期与渲染主循环
+│       └── main.go          # 应用入口：控制 Pipeline 生命周期与渲染主循环
 
 ├── pkg/
 
 │   ├── bridge/
 
-│   │   └── middleware.go    \# 适配器：封装对线上中间件的调用逻辑
+│   │   └── middleware.go    # 适配器：封装对线上中间件的调用逻辑
 
 │   ├── processor/
 
-│   │   ├── converter.go     \# 转换器：Byte Slice 转 GoCV Mat (零拷贝)
+│   │   ├── converter.go     # 转换器：Byte Slice 转 GoCV Mat (零拷贝)
 
-│   │   └── colorizer.go     \# 上色器：将 16bit 深度图映射为 8bit 伪彩色图
+│   │   ├── colorizer.go     # 上色器：将 16bit 深度图映射为 8bit 伪彩色图
+
+│   │   └── extractor.go     # 提取器：提取深度距离信息
 
 │   ├── hud/
 
-│   │   └── painter.go       \# 视觉层：在图像上实时绘制时间戳、FPS 与元数据
+│   │   └── painter.go       # 视觉层：在图像上实时绘制时间戳、FPS、元数据及准星
 
 │   └── display/
 
-│       └── screen.go        \# 渲染层：管理双窗口同步显示逻辑
+│       └── screen.go        # 渲染层：管理双窗口同步显示逻辑
 
-├── go.mod                   \# 依赖配置：声明引用 tianfei212/jetson-rs-middleware
+├── go.mod                   # 依赖配置：声明引用 tianfei212/jetson-rs-middleware
 
-└── Makefile                 \# 自动化脚本：处理构建与 CGO 链接参数
+└── Makefile                 # 自动化脚本：处理构建与 CGO 链接参数
 
 ---
 
-## **4\. 核心数据模型 (Data Entities)**
+## 4. 核心数据模型 (Data Entities)
 
-### **4.1 UnifiedFrame**
+### 4.1 UnifiedFrame
 
 所有模块间传递的核心对象，确保 RGB 与 Depth 数据的原子性同步。
 
@@ -72,9 +74,9 @@ Go
 
 type UnifiedFrame struct {
 
-    RawColor   \[\]byte            // 来自中间件的原始 RGB 字节流
+    RawColor   []byte            // 来自中间件的原始 RGB 字节流
 
-    RawDepth   \[\]byte            // 来自中间件的原始 16bit 深度字节流
+    RawDepth   []byte            // 来自中间件的原始 16bit 深度字节流
 
     Width      int               // 图像宽度
 
@@ -88,38 +90,42 @@ type UnifiedFrame struct {
 
 ---
 
-## **5\. 函数定义与职责 (Function Definitions)**
+## 5. 函数定义与职责 (Function Definitions)
 
-### **📂 pkg/bridge/middleware.go**
+### 📂 pkg/bridge/middleware.go
 
-* **func NewMiddlewareClient(w, h, fps int) (\*RS2Client, error)**  
+* **func NewMiddlewareClient(w, h, fps int) (*RS2Client, error)**  
   * **开发指导**: 必须在此处显式开启中间件的 Align 功能，确保深度点云与彩色像素在空间上完全重合。  
-* **func (c \*RS2Client) Fetch() (\*UnifiedFrame, error)**  
+* **func (c *RS2Client) Fetch() (*UnifiedFrame, error)**  
   * **开发指导**: 内部调用线上库的 WaitForFrames()，并利用 time.Now() 记录系统到达时间。
 
-### **📂 pkg/processor/converter.go & colorizer.go**
+### 📂 pkg/processor/converter.go & colorizer.go & extractor.go
 
-* **func ToMat(data \[\]byte, w, h int, t gocv.MatType) gocv.Mat**  
+* **func ToMat(data []byte, w, h int, t gocv.MatType) gocv.Mat**  
   * **开发指导**: 必须使用 gocv.NewMatFromBytes 以实现零拷贝，严禁在处理循环中产生不必要的内存复制。  
 * **func ColorizeDepth(rawDepth gocv.Mat) gocv.Mat**  
   * **职责**: 将原始深度值进行归一化，并应用 gocv.ColorMapJet 转换为易于观察的彩虹图。
+* **func GetCenterDistance(rawDepth []byte, width, height int) float64**
+  * **职责**: 提取画面中心点的深度距离（单位：米）。
 
-### **📂 pkg/hud/painter.go**
+### 📂 pkg/hud/painter.go
 
-* **func OverlayHUD(img \*gocv.Mat, batch \*UnifiedFrame)**  
+* **func OverlayHUD(img *gocv.Mat, batch *UnifiedFrame, currentFPS float64)**  
   * **职责**: 在图像右上角绘制 2006-01-02 15:04:05.000 时间戳；左下角显示 FPS、分辨率和帧序号。  
   * **交互要求**: HUD 文字需带有半透明黑色背景遮罩，确保在强光环境下清晰可见。
+* **func DrawCenterDistance(img *gocv.Mat, batch *models.UnifiedFrame, distance float64)**
+  * **职责**: 在图像中心绘制绿色十字准星，并显示实时距离读数。
 
-### **📂 pkg/display/screen.go**
+### 📂 pkg/display/screen.go
 
-* **func (s \*Screen) Render(color, depth gocv.Mat)**  
+* **func (s *Screen) Render(color, depth gocv.Mat)**  
   * **职责**: 在 RGB Stream 和 Depth Stream 两个独立窗口同步刷新图像。
 
 ---
 
-## **6\. 交互逻辑与约束 (Interaction Requirements)**
+## 6. 交互逻辑与约束 (Interaction Requirements)
 
-### **🔄 开发核心流程**
+### 🔄 开发核心流程
 
 1. **Init**: main.go 调用 bridge.NewMiddlewareClient 建立连接。  
 2. **Pull**: 进入主循环，同步调用 Fetch()。  
@@ -127,43 +133,33 @@ type UnifiedFrame struct {
    * 将字节流转换为 colorMat 和 depthMat。  
    * 对 colorMat 执行 hud.OverlayHUD。  
    * 对 depthMat 执行 processor.ColorizeDepth。  
-4. **Display**: 调用 screen.Render 展示结果。  
+   * 调用 processor.GetCenterDistance 获取中心距离。
+4. **Display**: 
+   * 调用 hud.DrawCenterDistance 绘制准星。
+   * 调用 screen.Render 展示结果。  
 5. **Clean**: **必须**显式调用 mat.Close() 释放 GoCV 内存。
 
-### **⚠️ 嵌套开发准则 (Strict Rules)**
+### ⚠️ 嵌套开发准则 (Strict Rules)
 
-1. **中间件引用**: 严禁在应用层修改中间件返回的 \[\]byte 内容。  
+1. **中间件引用**: 严禁在应用层修改中间件返回的 []byte 内容。  
 2. **渲染限制**: 受 OpenCV/X11 限制，所有的窗口创建与 IMShow 必须在**主线程 (Main Goroutine)** 中执行。  
 3. **资源回收**: 鉴于 Jetson 资源有限，单次循环耗时应控制在 **16ms (60fps)** 或 **33ms (30fps)** 以内。  
 4. **硬件容错**: 若中间件返回设备丢失错误，程序应执行 pipeline.Stop() 并进入重连机制。
 
 ---
 
-## **7\. 构建与运行 (Build & Run)**
+## 7. 构建与运行 (Build & Run)
 
 Bash
 
-\# 1\. 下载线上依赖
+# 1. 下载线上依赖
 
-go mod download \[github.com/tianfei212/jetson-rs-middleware\](https://github.com/tianfei212/jetson-rs-middleware)
+go mod download [github.com/tianfei212/jetson-rs-middleware](https://github.com/tianfei212/jetson-rs-middleware)
 
-\# 2\. 编译
+# 2. 编译
 
-go build \-o rs-vision-hub ./cmd/hub/main.go
+go build -o rs-vision-hub ./cmd/hub/main.go
 
-\# 3\. 运行
+# 3. 运行
 
 ./rs-vision-hub
-
-\---
-
-\*\*JOJO\*\*，这份文档已经准备好了。
-
-\*\*你想让我下一步做什么？\*\*
-
-\* \*\*A\*\*: 编写 \`go.mod\` 文件（包含对你 GitHub 仓库的正确引用）。
-
-\* \*\*B\*\*: 编写 \`cmd/hub/main.go\` 的核心代码框架，直接展示如何跑通这个流程。
-
-\* \*\*C\*\*: 编写 \`Makefile\`，把 CGO 的链接路径一次性配好。
-
