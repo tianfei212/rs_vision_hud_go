@@ -73,3 +73,30 @@ func OverlayHUD(img *gocv.Mat, batch *models.UnifiedFrame, currentFPS float64) {
 	gocv.PutText(img, timeStr, image.Pt(timeRect.Min.X+5, timeRect.Max.Y-8), fontFace, fontScale, textColor, thickness)
 	gocv.PutText(img, infoStr, image.Pt(infoRect.Min.X+5, infoRect.Max.Y-8), fontFace, fontScale, textColor, thickness)
 }
+
+// DrawCenterDistance 在图像中心绘制准星和距离信息
+func DrawCenterDistance(img *gocv.Mat, batch *models.UnifiedFrame, distance float64) {
+	if img == nil || img.Empty() {
+		return
+	}
+
+	cx, cy := batch.Width/2, batch.Height/2
+
+	// 绘制中心十字准星 (绿色)
+	crosshairColor := color.RGBA{R: 0, G: 255, B: 0, A: 0}
+	length := 20
+	// 横线
+	gocv.Line(img, image.Pt(cx-length, cy), image.Pt(cx+length, cy), crosshairColor, 2)
+	// 竖线
+	gocv.Line(img, image.Pt(cx, cy-length), image.Pt(cx, cy+length), crosshairColor, 2)
+
+	// 绘制距离文字
+	distStr := fmt.Sprintf("Dist: %.2fm", distance)
+	// 计算文字大小以居中
+	textSize := gocv.GetTextSize(distStr, fontFace, fontScale, thickness)
+	textOrigin := image.Pt(cx-textSize.X/2, cy+length+textSize.Y+5)
+
+	// 绘制文字 (带简单阴影以增强可见度)
+	gocv.PutText(img, distStr, textOrigin, fontFace, fontScale, color.RGBA{0, 0, 0, 0}, thickness+2) // 黑色描边
+	gocv.PutText(img, distStr, textOrigin, fontFace, fontScale, crosshairColor, thickness)           // 绿色主体
+}
