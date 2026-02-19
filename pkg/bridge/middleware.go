@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	rs2 "github.com/tianfei212/jetson-rs-middleware"
+	rs2 "github.com/tianfei212/jetson-rs-middleware/rs"
 )
 
 // UnifiedFrame 所有模块间传递的核心对象 (SKILLs.md 4.1)

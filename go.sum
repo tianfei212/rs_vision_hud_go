@@ -1,2 +1,2 @@
-github.com/tianfei212/jetson-rs-middleware v1.0.0 h1:aRkWHOTG3qU50s1DxoSSoQuuntCa4J8UpY1b/x2hchA=
-github.com/tianfei212/jetson-rs-middleware v1.0.0/go.mod h1:BhTSUjNLtptxBEahvCiTinID4BUDcc1qRGRu7LppV1U=
+gocv.io/x/gocv v0.43.0 h1:PFNpRUcV8fgBRDbVHHN+4BDZjjPnVveo5N/+e15BTuA=
+gocv.io/x/gocv v0.43.0/go.mod h1:zYdWMj29WAEznM3Y8NsU3A0TRq/wR/cy75jeUypThqU=
